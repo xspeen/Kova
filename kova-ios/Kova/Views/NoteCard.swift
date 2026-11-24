@@ -3,7 +3,7 @@ import SwiftData
 
 /// Colored note card for the masonry grid: title, body preview, date
 /// footer and pin indicator, with a full context menu (pin, archive,
-/// change color, delete).
+/// change color, export, delete).
 struct NoteCard: View {
 
     let note: Note
@@ -67,6 +67,7 @@ struct NoteCard: View {
         Section {
             Button {
                 withAnimation(KovaTheme.snappySpring) { note.isPinned.toggle() }
+                try? modelContext.save()
             } label: {
                 Label(
                     note.isPinned ? "Unpin" : "Pin",
@@ -86,6 +87,7 @@ struct NoteCard: View {
                         withAnimation(KovaTheme.snappySpring) {
                             note.colorIndex = swatch.index
                         }
+                        try? modelContext.save()
                     } label: {
                         Label {
                             Text(swatch.name)
@@ -105,6 +107,18 @@ struct NoteCard: View {
                 }
             } label: {
                 Label("Note color", systemImage: "paintpalette")
+            }
+        }
+
+        Section {
+            ShareLink(
+                item: NoteExport.singleNoteJSON(for: note),
+                preview: SharePreview(
+                    note.title.isEmpty ? "Kova note" : note.title,
+                    text: note.previewText
+                )
+            ) {
+                Label("Export", systemImage: "square.and.arrow.up")
             }
         }
 
