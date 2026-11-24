@@ -28,11 +28,15 @@ enum SidebarDestination: String, CaseIterable, Identifiable {
     }
 }
 
-/// Custom slide-in drawer with brand header and navigation items.
+/// Custom slide-in drawer with brand header, navigation items and the
+/// library tools (export/import backups).
 struct SidebarView: View {
 
     @Binding var destination: SidebarDestination
     let onClose: () -> Void
+
+    var onExportAll: (() -> Void)? = nil
+    var onImportNotes: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -41,6 +45,34 @@ struct SidebarView: View {
 
             ForEach(SidebarDestination.allCases) { item in
                 row(item)
+            }
+
+            if onExportAll != nil || onImportNotes != nil {
+                sectionLabel("Library tools")
+                    .padding(.top, 14)
+                    .padding(.bottom, 4)
+
+                if let onExportAll {
+                    actionRow(
+                        title: "Export notes",
+                        icon: "square.and.arrow.up",
+                        action: {
+                            onClose()
+                            onExportAll()
+                        }
+                    )
+                }
+
+                if let onImportNotes {
+                    actionRow(
+                        title: "Import notes",
+                        icon: "square.and.arrow.down",
+                        action: {
+                            onClose()
+                            onImportNotes()
+                        }
+                    )
+                }
             }
 
             Spacer(minLength: 0)
@@ -79,6 +111,13 @@ struct SidebarView: View {
         }
     }
 
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+    }
+
     private func row(_ item: SidebarDestination) -> some View {
         let isSelected = destination == item
 
@@ -108,5 +147,25 @@ struct SidebarView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(item.title)
+    }
+
+    private func actionRow(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(width: 26)
+
+                Text(title)
+                    .font(.subheadline)
+
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Color.primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }

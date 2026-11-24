@@ -1,9 +1,10 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 /// Root screen: top bar with drawer toggle, live search field, masonry
 /// note grid, custom sliding sidebar, FAB and a scale-transition editor
-/// overlay.
+/// overlay. Also hosts the JSON backup export/import flows.
 struct MainView: View {
 
     @Environment(\.modelContext) private var modelContext
@@ -15,6 +16,13 @@ struct MainView: View {
     @State private var destination: SidebarDestination = .notes
     @State private var showSidebar = false
     @State private var editorNote: Note?
+
+    // Backup flows
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var backupDocument = NoteBackupDocument(json: "{}")
+    @State private var isWorking = false
+    @State private var statusMessage: String?
 
     var body: some View {
         ZStack {
@@ -41,6 +49,33 @@ struct MainView: View {
             if let note = editorNote {
                 editorOverlay(for: note)
             }
+        }
+        .overlay {
+            if isWorking {
+                KovaLoaderOverlay(message: "Working with your notes...")
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let message = statusMessage {
+                statusBanner(message)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .fileExporter(
+            isPresented: $showExporter,
+            document: backupDocument,
+            contentType: .json,
+            defaultFilename: "kova-notes-backup"
+        ) { result in
+            if case .success = result {
+                showStatus("Backup saved")
+            }
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [.json]
+        ) { result in
+            handleImport(result)
         }
         .onChange(of: destination) { _, _ in
             searchText = ""
@@ -152,9 +187,14 @@ struct MainView: View {
                 .transition(.opacity)
                 .onTapGesture { toggleSidebar(false) }
 
-            SidebarView(destination: $destination) {
-                toggleSidebar(false)
-            }
+            SidebarView(
+                destination: $destination,
+                onClose: {
+                    toggleSidebar(false)
+                },
+                onExportAll: { exportAllNotes() },
+                onImportNotes: { showImporter = true }
+            )
             .frame(width: 286)
             .transition(.move(edge: .leading))
         }
@@ -198,6 +238,93 @@ struct MainView: View {
         }
         .transition(.scale(scale: 0.94).combined(with: .opacity))
         .zIndex(2)
+    }
+
+    // MARK: Backup flows
+
+    private func exportAllNotes() {
+        // Include everything (active, archived and trashed), matching the
+        // Android build's backup behavior.
+        let json = NoteExport.json(for: allNotes)
+        if json.isEmpty {
+            showStatus("Nothing to export")
+            return
+        }
+        backupDocument = NoteBackupDocument(json: json)
+        showExporter = true
+    }
+
+    private func handleImport(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else { return }
+
+        isWorking = true
+        Task {
+            let notes = await importNotes(from: url)
+            isWorking = false
+            await MainActor.run {
+                if notes > 0 {
+                    showStatus("Imported \(notes) notes")
+                } else {
+                    showStatus("Nothing to import")
+                }
+            }
+        }
+    }
+
+    private func importNotes(from url: URL) async -> Int {
+        let imported = await Task.detached(priority: .userInitiated) { [url] -> [NoteDTO] in
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if accessing { url.stopAccessingSecurityScopedResource() }
+            }
+            guard let data = try? Data(contentsOf: url) else { return [] }
+            return NoteExport.notes(from: data)
+        }.value
+
+        guard !imported.isEmpty else { return 0 }
+
+        for dto in imported {
+            let note = Note(
+                title: dto.title,
+                body: dto.body,
+                colorIndex: dto.colorIndex,
+                isPinned: dto.isPinned,
+                isArchived: dto.isArchived,
+                isTrashed: dto.isTrashed,
+                createdAt: dto.createdAt,
+                updatedAt: dto.updatedAt
+            )
+            modelContext.insert(note)
+        }
+        try? modelContext.save()
+        return imported.count
+    }
+
+    // MARK: Status banner
+
+    private func showStatus(_ message: String) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            statusMessage = message
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            withAnimation(.easeOut(duration: 0.3)) {
+                if statusMessage == message { statusMessage = nil }
+            }
+        }
+    }
+
+    private func statusBanner(_ message: String) -> some View {
+        Text(message)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(
+                Capsule().fill(KovaTheme.accent)
+                    .shadow(color: KovaTheme.accent.opacity(0.4), radius: 12, y: 4)
+            )
+            .padding(.bottom, 28)
     }
 
     // MARK: Derived data
@@ -248,6 +375,31 @@ struct MainView: View {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
             editorNote = target
         }
+    }
+}
+
+// MARK: - Backup document
+
+/// FileDocument wrapper so the system share/export sheet can write the
+/// Kova JSON backup anywhere the user chooses.
+struct NoteBackupDocument: FileDocument {
+
+    static var readableContentTypes: [UTType] { [.json] }
+    static var writableContentTypes: [UTType] { [.json] }
+
+    var json: String
+
+    init(json: String) {
+        self.json = json
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        let data = configuration.file.regularFileContents ?? Data()
+        json = String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: json.data(using: .utf8) ?? Data())
     }
 }
 

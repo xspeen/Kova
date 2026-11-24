@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Trash: restore individual notes, delete them forever, or empty the
-/// whole trash with confirmation.
+/// Trash: restore individual notes, export them, delete them forever,
+/// or empty the whole trash with confirmation.
 struct TrashView: View {
 
     @Environment(\.modelContext) private var modelContext
@@ -111,16 +111,30 @@ struct TrashView: View {
             .tint(KovaTheme.accent)
         }
         .contextMenu {
-            Button {
-                withAnimation(KovaTheme.snappySpring) { restore(note) }
-            } label: {
-                Label("Restore", systemImage: "arrow.uturn.backward.circle")
+            Section {
+                Button {
+                    withAnimation(KovaTheme.snappySpring) { restore(note) }
+                } label: {
+                    Label("Restore", systemImage: "arrow.uturn.backward.circle")
+                }
+
+                ShareLink(
+                    item: NoteExport.singleNoteJSON(for: note),
+                    preview: SharePreview(
+                        note.title.isEmpty ? "Kova note" : note.title,
+                        text: note.previewText
+                    )
+                ) {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
             }
 
-            Button(role: .destructive) {
-                withAnimation(KovaTheme.snappySpring) { deleteForever(note) }
-            } label: {
-                Label("Delete forever", systemImage: "trash")
+            Section {
+                Button(role: .destructive) {
+                    withAnimation(KovaTheme.snappySpring) { deleteForever(note) }
+                } label: {
+                    Label("Delete forever", systemImage: "trash")
+                }
             }
         }
     }
