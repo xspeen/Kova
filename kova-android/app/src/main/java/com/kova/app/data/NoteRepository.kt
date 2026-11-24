@@ -16,6 +16,8 @@ class NoteRepository(private val dao: NoteDao) {
 
     fun observeNote(id: Long): Flow<NoteEntity?> = dao.observeNoteById(id)
 
+    suspend fun getAllForExport(): List<NoteEntity> = dao.getAllForExport()
+
     suspend fun upsert(note: NoteEntity) = dao.upsert(note)
 
     suspend fun delete(note: NoteEntity) = dao.delete(note)

@@ -33,6 +33,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE id = :id")
     fun observeNoteById(id: Long): Flow<NoteEntity?>
 
+    @Query("SELECT * FROM notes")
+    suspend fun getAllForExport(): List<NoteEntity>
+
     @Upsert
     suspend fun upsert(note: NoteEntity)
 
