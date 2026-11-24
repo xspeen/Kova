@@ -1,34 +1,41 @@
 package com.kova.app.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.RestoreFromTrash
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +45,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,20 +59,31 @@ import com.kova.app.ui.theme.noteContainerColor
 
 /**
  * A colored, Keep-style note card. Long-press or the overflow button opens a
- * menu with pin/unpin, archive/unarchive, color change and delete.
+ * bottom sheet with pin/unpin, archive/unarchive, export, color change and
+ * delete actions. In trash the sheet offers restore and delete-forever.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NoteCard(
     note: NoteEntity,
+    inTrash: Boolean = false,
+    inArchive: Boolean = false,
     onOpen: () -> Unit,
     onTogglePin: () -> Unit,
     onToggleArchive: () -> Unit,
     onDelete: () -> Unit,
+    onDeleteForever: () -> Unit,
+    onRestore: () -> Unit,
     onColorChange: (Int) -> Unit,
+    onExport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    var sheetOpen by remember { mutableStateOf(false) }
+    var confirmDeleteForever by remember { mutableStateOf(false) }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
 
     val isPastel = note.colorIndex in 1..NotePalette.size
     val container = noteContainerColor(note.colorIndex, MaterialTheme.colorScheme.surface)
@@ -70,15 +91,20 @@ fun NoteCard(
     val subtle = content.copy(alpha = 0.72f)
 
     Card(
-        modifier = modifier,
+        modifier = modifier.pressScale(pressed),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = container)
     ) {
         Column(
             modifier = Modifier
                 .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = LocalIndication.current,
                     onClick = onOpen,
-                    onLongClick = { menuExpanded = true }
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        sheetOpen = true
+                    }
                 )
                 .padding(14.dp)
         ) {
@@ -114,7 +140,7 @@ fun NoteCard(
                         modifier = Modifier.padding(start = 4.dp)
                     )
                 }
-                IconButton(onClick = { menuExpanded = true }) {
+                IconButton(onClick = { sheetOpen = true }) {
                     Icon(
                         imageVector = Icons.Rounded.MoreVert,
                         contentDescription = "More options",
@@ -132,58 +158,166 @@ fun NoteCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
 
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false }
+    if (sheetOpen) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { sheetOpen = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                DropdownMenuItem(
-                    text = { Text(if (note.isPinned) "Unpin" else "Pin") },
-                    leadingIcon = {
-                        Icon(imageVector = Icons.Rounded.PushPin, contentDescription = null)
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onTogglePin()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text(if (note.isArchived) "Unarchive" else "Archive") },
-                    leadingIcon = {
-                        Icon(imageVector = Icons.Outlined.Inventory2, contentDescription = null)
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onToggleArchive()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Delete") },
-                    leadingIcon = {
-                        Icon(imageVector = Icons.Outlined.Delete, contentDescription = null)
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onDelete()
-                    }
-                )
-                HorizontalDivider()
-                Text(
-                    text = "Change color",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-                ColorSwatchRow(
-                    selected = note.colorIndex,
-                    onSelected = {
-                        menuExpanded = false
-                        onColorChange(it)
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
+                if (inTrash) {
+                    SheetActionRow(
+                        label = "Restore",
+                        icon = Icons.Outlined.RestoreFromTrash,
+                        onClick = {
+                            sheetOpen = false
+                            onRestore()
+                        }
+                    )
+                    SheetActionRow(
+                        label = "Export",
+                        icon = Icons.Outlined.FileDownload,
+                        onClick = {
+                            sheetOpen = false
+                            onExport()
+                        }
+                    )
+                    SheetActionRow(
+                        label = "Delete permanently",
+                        icon = Icons.Outlined.Delete,
+                        isError = true,
+                        onClick = {
+                            sheetOpen = false
+                            confirmDeleteForever = true
+                        }
+                    )
+                } else {
+                    SheetActionRow(
+                        label = if (note.isPinned) "Unpin" else "Pin",
+                        icon = Icons.Rounded.PushPin,
+                        onClick = {
+                            sheetOpen = false
+                            onTogglePin()
+                        }
+                    )
+                    SheetActionRow(
+                        label = if (inArchive || note.isArchived) "Unarchive" else "Archive",
+                        icon = Icons.Outlined.Inventory2,
+                        onClick = {
+                            sheetOpen = false
+                            onToggleArchive()
+                        }
+                    )
+                    SheetActionRow(
+                        label = "Export",
+                        icon = Icons.Outlined.FileDownload,
+                        onClick = {
+                            sheetOpen = false
+                            onExport()
+                        }
+                    )
+                    SheetActionRow(
+                        label = "Delete",
+                        icon = Icons.Outlined.Delete,
+                        isError = true,
+                        onClick = {
+                            sheetOpen = false
+                            onDelete()
+                        }
+                    )
+                }
+                if (!inTrash) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Color",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    ColorSwatchRow(
+                        selected = note.colorIndex,
+                        onSelected = onColorChange,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
+    }
+
+    if (confirmDeleteForever) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteForever = false },
+            title = { Text("Delete forever?") },
+            text = { Text("This note will be gone for good.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteForever = false
+                    onDeleteForever()
+                }) {
+                    Text(
+                        text = "Delete forever",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteForever = false }) {
+                    Text(text = "Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SheetActionRow(
+    label: String,
+    icon: ImageVector,
+    isError: Boolean = false,
+    onClick: () -> Unit
+) {
+    val accent = if (isError) MaterialTheme.colorScheme.error else KovaIndigo
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(accent.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.size(16.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 

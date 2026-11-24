@@ -4,9 +4,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
@@ -41,24 +42,15 @@ fun KovaNavHost(
         navController = navController,
         startDestination = Routes.SPLASH,
         modifier = modifier,
-        enterTransition = {
-            fadeIn(animationSpec = tween(280)) +
-                slideInHorizontally(
-                    animationSpec = tween(280),
-                    initialOffsetX = { it / 12 }
-                )
-        },
+        enterTransition = { fadeIn(animationSpec = tween(280)) },
         exitTransition = { fadeOut(animationSpec = tween(220)) },
         popEnterTransition = { fadeIn(animationSpec = tween(220)) },
-        popExitTransition = {
-            fadeOut(animationSpec = tween(220)) +
-                slideOutHorizontally(
-                    animationSpec = tween(220),
-                    targetOffsetX = { it / 12 }
-                )
-        }
+        popExitTransition = { fadeOut(animationSpec = tween(220)) }
     ) {
-        composable(route = Routes.SPLASH) {
+        composable(
+            route = Routes.SPLASH,
+            exitTransition = { fadeOut(animationSpec = tween(220)) }
+        ) {
             SplashScreen(
                 onContinue = {
                     navController.navigate(Routes.HOME) {
@@ -68,7 +60,16 @@ fun KovaNavHost(
             )
         }
 
-        composable(route = Routes.HOME) {
+        composable(
+            route = Routes.HOME,
+            enterTransition = {
+                fadeIn(animationSpec = tween(320)) +
+                    scaleIn(
+                        animationSpec = tween(320),
+                        initialScale = 1.08f
+                    )
+            }
+        ) {
             HomeScreen(
                 viewModel = viewModel,
                 onEditNote = { noteId -> navController.navigate(Routes.editor(noteId)) },
@@ -85,19 +86,19 @@ fun KovaNavHost(
                 }
             ),
             enterTransition = {
-                fadeIn(animationSpec = tween(220)) +
-                    scaleIn(
-                        animationSpec = tween(220),
-                        initialScale = 0.92f
+                fadeIn(animationSpec = tween(260)) +
+                    slideInVertically(
+                        animationSpec = tween(260),
+                        initialOffsetY = { it / 6 }
                     )
             },
-            exitTransition = { fadeOut(animationSpec = tween(180)) },
-            popEnterTransition = { fadeIn(animationSpec = tween(180)) },
+            exitTransition = { fadeOut(animationSpec = tween(220)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(260)) },
             popExitTransition = {
-                fadeOut(animationSpec = tween(180)) +
-                    scaleOut(
-                        animationSpec = tween(180),
-                        targetScale = 0.92f
+                fadeOut(animationSpec = tween(260)) +
+                    slideOutVertically(
+                        animationSpec = tween(260),
+                        targetOffsetY = { it / 6 }
                     )
             }
         ) { backStackEntry ->
@@ -109,7 +110,25 @@ fun KovaNavHost(
             )
         }
 
-        composable(route = Routes.SETTINGS) {
+        composable(
+            route = Routes.SETTINGS,
+            enterTransition = {
+                fadeIn(animationSpec = tween(300)) +
+                    slideInHorizontally(
+                        animationSpec = tween(300),
+                        initialOffsetX = { it }
+                    )
+            },
+            exitTransition = { fadeOut(animationSpec = tween(220)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(260)) },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(300)) +
+                    slideOutHorizontally(
+                        animationSpec = tween(300),
+                        targetOffsetX = { it }
+                    )
+            }
+        ) {
             SettingsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
