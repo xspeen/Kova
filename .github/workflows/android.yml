@@ -1,0 +1,78 @@
+name: Android Build
+
+on:
+  push:
+    branches: [main]
+    paths: ["kova-android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.2
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "8.2"
+
+      - name: Build debug APK
+        run: gradle -p kova-android assembleDebug --no-daemon
+
+      - name: Build release APK (unsigned)
+        run: gradle -p kova-android assembleRelease --no-daemon
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kova-debug-apk
+          path: kova-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kova-release-apk
+          path: kova-android/app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Publish rolling "latest" release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p dist
+          cp kova-android/app/build/outputs/apk/debug/app-debug.apk dist/Kova-1.0.0-debug.apk
+          cp kova-android/app/build/outputs/apk/release/app-release-unsigned.apk dist/Kova-1.0.0-release-unsigned.apk
+          gh release view latest --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 || \
+            gh release create latest \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Kova — Latest Build" \
+              --notes "Automated rolling release built from the latest commit on main.
+
+          **Kova — Your thoughts. Yours alone.**
+
+          - \`Kova-1.0.0-debug.apk\` — debug build, install directly on Android 8.0+
+          - \`Kova-1.0.0-release-unsigned.apk\` — optimized release build (unsigned, sideload)
+
+          Kova is fully offline: no INTERNET permission, no ads, no tracking. Every release here is rebuilt automatically on every commit, so this page always carries the newest APK." \
+              --latest
+          gh release upload latest dist/Kova-1.0.0-debug.apk dist/Kova-1.0.0-release-unsigned.apk --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Release APK on version tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            kova-android/app/build/outputs/apk/debug/app-debug.apk
+            kova-android/app/build/outputs/apk/release/app-release-unsigned.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
