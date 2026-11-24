@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kova privacy illustration: a soft shield with an outlined core, a solid
+     lock body with a white keyhole, floating accent circles and dotted arcs. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+
+    <!-- Ambient accent circles -->
+    <path
+        android:fillColor="#B3F2E28C"
+        android:pathData="M196,54 A14,14 0 1 0 196,82 A14,14 0 1 0 196,54 Z"/>
+    <path
+        android:fillColor="#B3D8BEF0"
+        android:pathData="M44,178 A10,10 0 1 0 44,198 A10,10 0 1 0 44,178 Z"/>
+
+    <!-- Dotted arc segments around the shield -->
+    <path
+        android:strokeColor="#4D6C5CE7"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M152,21 A104,104 0 0 1 187,40"/>
+    <path
+        android:strokeColor="#4D6C5CE7"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M197,50 A104,104 0 0 1 212,71"/>
+    <path
+        android:strokeColor="#4D6C5CE7"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M20,147 A104,104 0 0 1 26,164"/>
+    <path
+        android:strokeColor="#4D6C5CE7"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M35,180 A104,104 0 0 1 60,205"/>
+
+    <!-- Soft shield silhouette -->
+    <path
+        android:fillColor="#296C5CE7"
+        android:pathData="M120,50 L174,70 L174,118 C174,152 152,176 120,190 C88,176 66,152 66,118 L66,70 Z"/>
+
+    <!-- Inner shield outline -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#6C5CE7"
+        android:strokeWidth="4"
+        android:strokeLineJoin="round"
+        android:pathData="M120,62 L162,78 L162,116 C162,145 143,164 120,176 C97,164 78,145 78,116 L78,78 Z"/>
+
+    <!-- Lock shackle -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#6C5CE7"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M111,112 L111,102 A9,9 0 0 1 129,102 L129,112"/>
+
+    <!-- Lock body -->
+    <path
+        android:fillColor="#6C5CE7"
+        android:pathData="M108,112 L132,112 Q136,112 136,116 L136,142 Q136,146 132,146 L108,146 Q104,146 104,142 L104,116 Q104,112 108,112 Z"/>
+
+    <!-- Keyhole: circle plus stem -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M120,119.5 A6.5,6.5 0 1 0 120,132.5 A6.5,6.5 0 1 0 120,119.5 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M117.5,128 L122.5,128 L123.5,140 L116.5,140 Z"/>
+</vector>

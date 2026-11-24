@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kova library illustration: a wooden shelf holding a row of pastel
+     books, one tilted, one lying flat, with a small indigo bookmark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+
+    <!-- Soft ground shadow -->
+    <path
+        android:fillColor="#14000000"
+        android:pathData="M50,214 A70,8 0 0 1 190,214 A70,8 0 0 1 50,214 Z"/>
+
+    <!-- Wooden shelf -->
+    <path
+        android:fillColor="#A9744F"
+        android:pathData="M40,196 L200,196 A5,5 0 0 1 200,206 L40,206 A5,5 0 0 1 40,196 Z"/>
+
+    <!-- Book 1: standing, sky -->
+    <path
+        android:fillColor="#BBD5F7"
+        android:pathData="M44,196 L44,126 Q44,122 48,122 L60,122 Q64,122 64,126 L64,196 Z"/>
+    <!-- Book 2: standing, sunlight, carries the bookmark ribbon -->
+    <path
+        android:fillColor="#F2E28C"
+        android:pathData="M66,196 L66,116 Q66,112 70,112 L84,112 Q88,112 88,116 L88,196 Z"/>
+    <!-- Bookmark ribbon -->
+    <path
+        android:fillColor="#6C5CE7"
+        android:pathData="M73,112 L81,112 L81,142 L77,135 L73,142 Z"/>
+    <!-- Book 3: standing, mint -->
+    <path
+        android:fillColor="#C4E8C6"
+        android:pathData="M90,196 L90,130 Q90,126 94,126 L104,126 Q108,126 108,130 L108,196 Z"/>
+    <!-- Book 4: tilted, leaning toward the lilac book -->
+    <group
+        android:rotation="8"
+        android:pivotX="112"
+        android:pivotY="196">
+        <path
+            android:fillColor="#F7C0B8"
+            android:pathData="M112,196 L112,128 Q112,124 116,124 L128,124 Q132,124 132,128 L132,196 Z"/>
+    </group>
+    <!-- Book 5: standing, lilac -->
+    <path
+        android:fillColor="#D8BEF0"
+        android:pathData="M138,196 L138,120 Q138,116 142,116 L156,116 Q160,116 160,120 L160,196 Z"/>
+    <!-- Book 6: standing, blush -->
+    <path
+        android:fillColor="#F5C6DA"
+        android:pathData="M162,196 L162,132 Q162,128 166,128 L178,128 Q182,128 182,132 L182,196 Z"/>
+    <!-- Flat book lying on top of the lilac book -->
+    <path
+        android:fillColor="#BBD5F7"
+        android:pathData="M134,116 L134,110 Q134,104 140,104 L176,104 Q182,104 182,110 L182,116 Z"/>
+
+    <!-- Spine bands -->
+    <path
+        android:fillColor="#4DFFFFFF"
+        android:pathData="M48,180 L60,180 L60,185 L48,185 Z"/>
+    <path
+        android:fillColor="#4DFFFFFF"
+        android:pathData="M70,176 L84,176 L84,181 L70,181 Z"/>
+    <path
+        android:fillColor="#4DFFFFFF"
+        android:pathData="M94,178 L104,178 L104,183 L94,183 Z"/>
+    <path
+        android:fillColor="#4DFFFFFF"
+        android:pathData="M142,180 L156,180 L156,185 L142,185 Z"/>
+    <path
+        android:fillColor="#4DFFFFFF"
+        android:pathData="M166,182 L178,182 L178,187 L166,187 Z"/>
+</vector>

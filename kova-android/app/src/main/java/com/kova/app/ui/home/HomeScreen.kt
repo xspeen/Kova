@@ -1,8 +1,13 @@
 package com.kova.app.ui.home
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,12 +25,15 @@ import androidx.compose.material.icons.automirrored.filled.Delete
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -42,7 +50,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,15 +65,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Box
 import com.kova.app.data.NoteEntity
 import com.kova.app.ui.components.EmptyState
 import com.kova.app.ui.components.NoteCard
+import com.kova.app.ui.components.SkeletonNoteGrid
 import com.kova.app.ui.splash.KovaLogo
 import com.kova.app.viewmodel.NoteViewModel
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 /** Which list the home screen is showing, driven by the navigation drawer. */
 enum class HomeSection(val title: String) {
@@ -75,7 +85,7 @@ enum class HomeSection(val title: String) {
     TRASH("Trash")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: NoteViewModel,
@@ -85,13 +95,90 @@ fun HomeScreen(
     var section by rememberSaveable { mutableStateOf(HomeSection.NOTES) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val query by viewModel.query.collectAsState()
+    val isReady by viewModel.isReady.collectAsState()
     val activeNotes by viewModel.activeNotes.collectAsState()
     val archivedNotes by viewModel.archivedNotes.collectAsState()
     val trashedNotes by viewModel.trashedNotes.collectAsState()
 
     var showEmptyTrashDialog by remember { mutableStateOf(false) }
+    var exportTarget by remember { mutableStateOf<NoteEntity?>(null) }
+
+    // Per-note export: one shared launcher; the card sets [exportTarget]
+    // before launching so the result handler knows which note to write.
+    val exportNoteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        val target = exportTarget
+        if (uri != null && target != null) {
+            scope.launch {
+                val json = JSONObject().apply {
+                    put("version", 1)
+                    put("notes", JSONArray().put(NoteViewModel.noteToJson(target)))
+                }
+                val written = runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { stream ->
+                        stream.write(json.toString().toByteArray(Charsets.UTF_8))
+                        true
+                    } ?: false
+                }.getOrDefault(false)
+                if (!written) {
+                    Toast.makeText(context, "Could not write file", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        exportTarget = null
+    }
+
+    // Export-all backup from the drawer.
+    val exportAllLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val json = viewModel.buildExportJson()
+                    if (json.isBlank()) {
+                        Toast.makeText(context, "Nothing to export", Toast.LENGTH_SHORT).show()
+                    } else {
+                        context.contentResolver.openOutputStream(uri)?.use { stream ->
+                            stream.write(json.toByteArray(Charsets.UTF_8))
+                        }
+                        Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show()
+                    }
+                }.onFailure {
+                    Toast.makeText(context, "Could not write file", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Import from a JSON backup file.
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val text = runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        stream.readBytes().toString(Charsets.UTF_8)
+                    } ?: ""
+                }.getOrDefault("")
+                if (text.isBlank()) {
+                    Toast.makeText(context, "Could not read file", Toast.LENGTH_SHORT).show()
+                } else {
+                    val imported = viewModel.importNotes(text)
+                    Toast.makeText(
+                        context,
+                        "Imported $imported notes",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
 
     val notes: List<NoteEntity> = when (section) {
         HomeSection.NOTES -> activeNotes
@@ -111,6 +198,21 @@ fun HomeScreen(
                 onSettingsSelected = {
                     scope.launch { drawerState.close() }
                     onOpenSettings()
+                },
+                onExportAll = {
+                    scope.launch { drawerState.close() }
+                    exportAllLauncher.launch("kova-notes-backup.json")
+                },
+                onImportNotes = {
+                    scope.launch { drawerState.close() }
+                    importLauncher.launch(
+                        arrayOf(
+                            "application/json",
+                            "text/plain",
+                            "application/octet-stream",
+                            "*/*"
+                        )
+                    )
                 }
             )
         }
@@ -187,6 +289,11 @@ fun HomeScreen(
         ) { padding ->
             val searchActive = query.isNotBlank() && section == HomeSection.NOTES
             when {
+                !isReady -> SkeletonNoteGrid(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                )
                 notes.isEmpty() && searchActive -> EmptyState(
                     icon = Icons.Outlined.SearchOff,
                     title = "No results",
@@ -239,10 +346,14 @@ fun HomeScreen(
                         StaggeredAppear(index = index) {
                             NoteCard(
                                 note = note,
+                                inTrash = section == HomeSection.TRASH,
+                                inArchive = section == HomeSection.ARCHIVE,
                                 onOpen = { onEditNote(note.id) },
                                 onTogglePin = { viewModel.togglePin(note) },
                                 onToggleArchive = { viewModel.toggleArchive(note) },
                                 onDelete = { viewModel.moveToTrash(note) },
+                                onDeleteForever = { viewModel.deleteForever(note) },
+                                onRestore = { viewModel.restoreFromTrash(note) },
                                 onColorChange = { colorIndex ->
                                     viewModel.saveNote(
                                         existing = note,
@@ -251,6 +362,10 @@ fun HomeScreen(
                                         colorIndex = colorIndex,
                                         isPinned = note.isPinned
                                     )
+                                },
+                                onExport = {
+                                    exportTarget = note
+                                    exportNoteLauncher.launch("kova-note.json")
                                 }
                             )
                         }
@@ -266,10 +381,12 @@ fun HomeScreen(
             title = { Text("Empty trash?") },
             text = { Text("All notes in trash will be deleted forever. This cannot be undone.") },
             confirmButton = {
-                TextButton(onClick = {
-                    showEmptyTrashDialog = false
-                    viewModel.emptyTrash()
-                }) {
+                TextButton(
+                    onClick = {
+                        showEmptyTrashDialog = false
+                        viewModel.emptyTrash()
+                    }
+                ) {
                     Text(text = "Empty trash", color = MaterialTheme.colorScheme.primary)
                 }
             },
@@ -296,7 +413,7 @@ private fun StaggeredAppear(index: Int, content: @Composable () -> Unit) {
             animationSpec = tween(durationMillis = 260)
         )
     }
-    Box(
+    androidx.compose.foundation.layout.Box(
         modifier = Modifier.graphicsLayer {
             alpha = progress.value
             translationY = (1f - progress.value) * 40f
@@ -310,7 +427,9 @@ private fun StaggeredAppear(index: Int, content: @Composable () -> Unit) {
 private fun KovaDrawer(
     currentSection: HomeSection,
     onSectionSelected: (HomeSection) -> Unit,
-    onSettingsSelected: () -> Unit
+    onSettingsSelected: () -> Unit,
+    onExportAll: () -> Unit,
+    onImportNotes: () -> Unit
 ) {
     ModalDrawerSheet {
         Column(
@@ -358,6 +477,25 @@ private fun KovaDrawer(
                 icon = Icons.AutoMirrored.Filled.Delete,
                 selected = currentSection == HomeSection.TRASH,
                 onClick = { onSectionSelected(HomeSection.TRASH) }
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Text(
+                text = "Library tools",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 8.dp)
+            )
+            DrawerItem(
+                label = "Export notes",
+                icon = Icons.Outlined.FileDownload,
+                selected = false,
+                onClick = onExportAll
+            )
+            DrawerItem(
+                label = "Import notes",
+                icon = Icons.Outlined.FileUpload,
+                selected = false,
+                onClick = onImportNotes
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             DrawerItem(

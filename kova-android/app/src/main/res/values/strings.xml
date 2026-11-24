@@ -3,4 +3,11 @@
     <string name="app_name">Kova</string>
     <string name="tagline">Your thoughts. Yours alone.</string>
     <string name="search_hint">Search notes</string>
+
+    <string name="landing_page1_title">Kova</string>
+    <string name="landing_page2_title">A shelf for every thought</string>
+    <string name="landing_page2_caption">Everything you save rests on your own shelf — ready even when you are offline.</string>
+    <string name="landing_page3_title">Private by design</string>
+    <string name="landing_page3_caption">Your notes never leave this device. There is no account, no server, no exception.</string>
+    <string name="landing_cta">Get started</string>
 </resources>
