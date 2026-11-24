@@ -1,0 +1,16 @@
+# Android
+kova-android/.gradle/
+kova-android/build/
+kova-android/app/build/
+kova-android/local.properties
+*.apk.idsign
+
+# iOS / Xcode
+kova-ios/Kova.xcodeproj/
+kova-ios/build/
+kova-ios/DerivedData/
+*.xcuserstate
+.DS_Store
+
+# General
+*.log
